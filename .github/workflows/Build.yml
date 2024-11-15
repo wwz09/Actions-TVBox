@@ -135,8 +135,8 @@ jobs:
           done
           mv sourceCode-${{ env.commitS }}.* apk/
      
-      - name: Upload App To Artifact
-        uses: actions/upload-artifact@v4
+      #- name: Upload App To Artifact
+        #uses: actions/upload-artifact@v4
         #if: ${{ env.commit }}
         #continue-on-error: true
         #with:
