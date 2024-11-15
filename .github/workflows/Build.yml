@@ -28,10 +28,10 @@ jobs:
           - userName: takagen99
             repoName: Box
             branchName: main
-	    diy: takagen99.sh
+            diy: takagen99.sh
             java_ver: 17
-            
-               
+           
+          
     steps:
       - name: Checkout
         uses: actions/checkout@main
