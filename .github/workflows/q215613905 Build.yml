@@ -1,8 +1,8 @@
 name: q215613905 Build
 
 on:
-  schedule:
-    - cron: 36 */6 * * *
+  #schedule:
+    #- cron: 0 4-16/6 * * *
   workflow_dispatch:
     inputs:
       rebuild:
@@ -25,7 +25,7 @@ jobs:
             repoName: TVBoxOS
             branchName: main
             diy: q215613905.sh
-            
+            java_ver: 17
                
     steps:
       - name: Checkout
@@ -51,6 +51,7 @@ jobs:
           cd TVBoxOSC
           git checkout ${{ env.commit }}
           echo "tag=$(git log --date=format:'%Y%m%d-%H%M' --pretty=format:%cd ${{ env.commitS }} -1)" >> $GITHUB_ENV
+
       - name: DIY 
         if: ${{ env.commit }}
         working-directory: TVBoxOSC
@@ -63,20 +64,13 @@ jobs:
         working-directory: TVBoxOSC
         run: |
           echo '修改VersionName'
-          if [ "${{ matrix.userName }}" == "takagen99" ]; then
-            # 进行 sed 修改
-            sed -i 's/\.concat(buildTime())/ +\"${{ env.tag }}\"/g' app/build.gradle 
-            # 目前关于页面没有合并我的分支
-            sed -i "/android:text=/s#=\"#=\"${{ env.tag }}\\\\n\\\\n#" app/src/main/res/layout/dialog_about.xml
-          else
-            sed -i "/versionName/s#[0-9a-zA-Z_\.\'\"-]\+\$#\'${{ env.tag }}\'#" app/build.gradle
-            sed -i "/android:text=/s#=\"#=\"${{ env.tag }}\\\\n\\\\n#" app/src/main/res/layout/dialog_about.xml
-          fi 
+          sed -i "/versionName/s#[0-9a-zA-Z_\.\'\"-]\+\$#\'${{ env.tag }}\'#" app/build.gradle
+          sed -i "/android:text=/s#=\"#=\"${{ env.tag }}\\\\n\\\\n#" app/src/main/res/layout/dialog_about.xml
           echo 'crosswalk源，防挂'
           if grep -q 'crosswalk' build.gradle; then
-            sed -i "/crosswalk/a\        maven { url 'https://o0halfLife0o.github.io/crosswalk/releases/crosswalk/android/maven2' }" build.gradle
+            sed -i "/crosswalk/a\        maven { url 'https://o0HalfLife0o.github.io/crosswalk/releases/crosswalk/android/maven2' }" build.gradle
           else
-            sed -i "/jitpack.io/a\        maven { url 'https://o0halfLife0o.github.io/crosswalk/releases/crosswalk/android/maven2' }" build.gradle
+            sed -i "/jitpack.io/a\        maven { url 'https://o0HalfLife0o.github.io/crosswalk/releases/crosswalk/android/maven2' }" build.gradle
           fi
           
       - name: 压缩源代码
@@ -120,7 +114,7 @@ jobs:
       - name: Setup Gradle
         if: ${{ env.commit }}
         uses: gradle/actions/setup-gradle@main
- 
+
       - name: 进行构建
         if: ${{ env.commit }}
         working-directory: TVBoxOSC
@@ -137,28 +131,16 @@ jobs:
           for file in `find ~ -name "*.apk" -print`; do
             mv "$file" apk/TVBox_${{ matrix.userName }}_${{ env.tag }}.apk
           done
-
-      - name: Release Note
+          
+      - name: 程序上传
+        uses: actions/upload-artifact@main
         if: ${{ env.commit }}
-        working-directory: TVBoxOSC
-        run: |
-          lastCommit=$(grep "${{ matrix.userName }}\/${{ matrix.repoName }}" ${{ github.workspace }}/README.md |grep -o '[a-z0-9]\{40\}')
-          export LESSCHARSET=utf-8
-          echo -e "Credit: [${{ matrix.userName }}](${{ env.upStream }})\nCommit: ${{ env.commit }}\nChangelog:" > apk/${{ matrix.userName }}-Release.log
-          if [ "${{ env.commit }}" == "${lastCommit}" ]; then
-            git log --pretty=format:%B ${{ env.commitS }} -1 |sed -e "s# \{2,\}#\n#g" -e "/^Merge \(pull\|branch\|remote\)/d" -e '/^$/d' |cat -n |sort -k2,2 -k1,1n |uniq -f1 |sort -k1,1n |cut -f2- >> apk/${{ matrix.userName }}-Release.log
-          else
-            git log --pretty=format:%B ${{ env.commitS }}...${lastCommit:0:7} |sed -e "s# \{2,\}#\n#g" -e "/^Merge \(pull\|branch\|remote\)/d" -e '/^$/d' |cat -n |sort -k2,2 -k1,1n |uniq -f1 |sort -k1,1n |cut -f2- >> apk/${{ matrix.userName }}-Release.log
-          fi
+        continue-on-error: true
+        with:
+          name: ${{ matrix.userName }}-${{ matrix.repoName }}
+          path: |
+            TVBoxOSC/apk/*
 
-      #- name: 程序上传
-        #uses: actions/upload-artifact@main
-        #if: ${{ env.commit }}
-        #continue-on-error: true
-        #with:
-          #name: ${{ matrix.userName }}-${{ matrix.repoName }}
-          #path: |
-            #TVBoxOSC/apk/*
       - name: Whether Or Not to Publish
         if: ${{ inputs.donotpublish && env.commit }}
         continue-on-error: true
@@ -170,21 +152,10 @@ jobs:
         if: ${{ env.commit }}
         continue-on-error: true
         with:
-          name: ${{ matrix.userName }}-${{ matrix.repoName }}
+          name: ${{ env.tag }}
           tag: ${{ env.tag }}
           allowUpdates: true
           removeArtifacts: true
           artifacts: |
             TVBoxOSC/apk/*.apk
-            TVBoxOSC/source-${{ env.commitS }}.*
-
-      - uses: dev-drprasad/delete-older-releases@master
-        with:
-          keep_latest: 10
-          delete_tags: true
-          delete_tag_pattern: ${{ matrix.userName }}_${{ matrix.repoName }}_${{ matrix.branchName }}.*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-
 
